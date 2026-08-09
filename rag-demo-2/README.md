@@ -48,11 +48,18 @@ python3 ask_rag.py --show 1        # also print the retrieved chunks in full
 python3 ask_rag.py "is the gripper kit in stock?"
 ```
 
+Or both at once — this is the one to put on a screen:
+
+```bash
+python3 compare.py 1               # same question, no-RAG and RAG side by side
+```
+
 Other switches:
 
 ```bash
-NEUTRAL=1 python3 ask_raw.py 1     # neutral persona -> refusals instead of fabrication
-TOP_K=8 python3 ask_rag.py 1       # widen retrieval
+NEUTRAL=1 python3 ask_raw.py 1        # neutral persona -> refusals instead of fabrication
+TOP_K=8 python3 ask_rag.py 1          # widen retrieval
+HYBRID_ALPHA=0 python3 ask_rag.py 1   # pure vector search, no BM25 (see below)
 ```
 
 ## Two honest caveats
@@ -74,10 +81,38 @@ product" are **not** reliably answerable: vector search cannot add or sort, and
 top-k only ever sees k rows. `rag-demo-1/build_index.py` shows the fix —
 indexing pre-computed rollup facts — if you want to demo that technique here.
 
-Related: exact-identifier lookups like `ROB007` are the known weak spot of pure
-vector search, since a rare token carries little semantic signal. If Q1 retrieves
-poorly on the real embedder, either raise `TOP_K` or add a keyword/BM25 pass
-alongside cosine.
+## Why retrieval is hybrid, not pure cosine
+
+Worth demoing on its own — run `HYBRID_ALPHA=0 python3 ask_rag.py 1` to see it.
+
+Pure vector search is bad at exact-identifier lookup. Asked for **SKU ROB007**,
+`nomic-embed-text` ranked the correct chunk **4th of 5**, a thousandth of a point
+ahead of the chunk that fell off the list:
+
+```
+[0.856] ROB001  Robo-Arm Deluxe
+[0.826] ROB005  RoboOS Pro License
+[0.816] ROB011  MicroBot Starter Kit
+[0.815] ROB007  LiPo Battery Pack 48V   <- the answer
+[0.814] ROB003  Servo Motor Pack        <- 0.001 behind
+```
+
+It got the right answer only because `TOP_K=5` reached far enough. `ROB007`
+carries almost no semantic signal, so the embedder ranked by generic
+product-ness instead — the top hit is the most *typical* product, not the one
+asked for. Add a dozen products and this question starts failing.
+
+The fix is **BM25 blended with cosine** (`HYBRID_ALPHA`, default 0.4). BM25
+weights *rare* terms heavily, and a SKU appears in exactly one chunk out of 37,
+so it pins that chunk to rank 1 — now first with a 0.057 margin instead of
+fourth by 0.001. It is ~25 lines and needs no new dependencies.
+
+One subtlety worth pointing at during the demo: **cosine is used raw and
+deliberately not normalised**, while BM25 is min-max scaled. Min-max scaling the
+cosines stretches their narrow 0.81–0.86 band across the full 0–1 range, which
+manufactures confidence the embedder never had and drowns out BM25 — with that
+bug in place, ROB007 only climbed to rank 3. Rank-fusion (RRF) also fails here,
+because ROB001 scores well on *both* signals while ROB007 wins on only one.
 
 ## Files
 
@@ -89,7 +124,8 @@ alongside cosine.
 | `setup_db.py` | 1 — load the two `.sql` files into `roboshop.db` |
 | `ask_raw.py` | 2 — ask with **no** context (the hallucination half) |
 | `build_index.py` | 3 — rows → prose facts → embeddings → `rag_index` |
-| `ask_rag.py` | 4 — retrieve top-k and answer, grounded |
+| `ask_rag.py` | 4 — hybrid retrieve top-k and answer, grounded |
+| `compare.py` | both halves of one question, in one output |
 | `questions.py` | the demo questions + ground truth from SQL |
 
 Both `.sql` files are INSERT-only MySQL dumps, so `setup_db.py` supplies the two

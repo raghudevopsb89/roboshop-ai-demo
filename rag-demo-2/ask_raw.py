@@ -44,9 +44,11 @@ if os.environ.get("NEUTRAL"):
 def ask(q, truth=None):
     print(rule("NO RAG  (model answers from parametric memory only)"))
     print(f"Q: {q}\n")
-    print(f"A: {chat(q, system=SYSTEM)}\n")
+    print(rule("MODEL ANSWER  (no context supplied -- expect fabrication)"))
+    print(chat(q, system=SYSTEM))
     if truth:
-        print(f"GROUND TRUTH (from SQL): {truth}")
+        print(rule("GROUND TRUTH  (read from SQL -- never shown to the model)"))
+        print(truth)
 
 
 def main():
