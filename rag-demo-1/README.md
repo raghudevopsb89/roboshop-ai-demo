@@ -19,11 +19,28 @@ ollama pull nomic-embed-text
 ollama pull llama3.2:3b
 ```
 
-```bash
-python3 02_ask_raw.py 2
-```
+Before RAG
 
 ```bash
-python3 03_build_index.py
+python3 ask_raw.py 1
+python3 ask_raw.py 2
 ```
+
+Setup RAG
+
+```bash
+python3 setup_db.py
+python3 build_index.py
+```
+
+After RAG 
+
+
+```bash
+python3 ask_rag.py 1
+python3 ask_rag.py 2
+```
+
+
+
 
