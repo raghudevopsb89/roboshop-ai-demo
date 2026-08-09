@@ -10,15 +10,15 @@ bug: the persona claims data access that the model does not have, so the model
 fills the gap by inventing plausible names, IDs and numbers.
 
 (With a plain neutral persona this model mostly refuses instead -- worth showing
-too, via: NEUTRAL=1 python3 02_ask_raw.py 1. Refusal is safer, but it is still
+too, via: NEUTRAL=1 python3 ask_raw.py 1. Refusal is safer, but it is still
 useless to the user, and RAG is what turns both refusal and fabrication into a
 correct answer.)
 
 Usage:
-    python3 02_ask_raw.py            # run all demo questions
-    python3 02_ask_raw.py 1          # run question #1 only
-    python3 02_ask_raw.py "your own question here"
-    NEUTRAL=1 python3 02_ask_raw.py  # neutral persona -> refusals instead
+    python3 ask_raw.py            # run all demo questions
+    python3 ask_raw.py 1          # run question #1 only
+    python3 ask_raw.py "your own question here"
+    NEUTRAL=1 python3 ask_raw.py  # neutral persona -> refusals instead
 """
 import os
 import sys

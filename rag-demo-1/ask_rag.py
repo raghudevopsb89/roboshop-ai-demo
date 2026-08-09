@@ -8,10 +8,10 @@ gives the model an explicit escape hatch, so "not in the data" is a legal answer
 Without that, a model handed weak context will still paper over the gap.
 
 Usage:
-    python3 04_ask_rag.py            # all demo questions
-    python3 04_ask_rag.py 1          # question #1 only
-    python3 04_ask_rag.py "your own question here"
-    python3 04_ask_rag.py --show 1   # also print the retrieved chunks
+    python3 ask_rag.py            # all demo questions
+    python3 ask_rag.py 1          # question #1 only
+    python3 ask_rag.py "your own question here"
+    python3 ask_rag.py --show 1   # also print the retrieved chunks
 """
 import json
 import sqlite3
@@ -40,7 +40,7 @@ def retrieve(question, k=TOP_K):
     rows = conn.execute("SELECT source, text, vector FROM rag_index").fetchall()
     conn.close()
     if not rows:
-        sys.exit("rag_index is empty -- run: python3 03_build_index.py")
+        sys.exit("rag_index is empty -- run: python3 build_index.py")
 
     qvec = embed([question])[0]
     scored = [(cosine(qvec, json.loads(v)), src, txt) for src, txt, v in rows]
