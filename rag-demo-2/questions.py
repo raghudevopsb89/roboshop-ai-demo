@@ -1,8 +1,8 @@
 """The demo questions, plus the ground truth held in the RoboShop SQL data.
 
 Every one of these is answerable ONLY from the catalogue and cities tables.
-The 12 products are invented for this monorepo -- no base model has ever seen
-them -- so without RAG the model must either refuse or fabricate.
+The 12 products are invented for RoboShop -- no base model has ever seen them --
+so without RAG the model must either refuse or fabricate.
 
 One honest caveat, unlike rag-demo-1: "RoboShop" is a real, widely-used public
 DevOps training application, so the model DOES have some genuine knowledge of the

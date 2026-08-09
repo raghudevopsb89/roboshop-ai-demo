@@ -15,11 +15,6 @@ EMBED_MODEL = os.environ.get("EMBED_MODEL", "nomic-embed-text")
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, "roboshop.db")
 
-# The real monorepo whose SQL files this demo indexes. Override if it moves.
-AZURE_REPO = os.environ.get(
-    "AZURE_REPO", "/Users/skalluru/repos/cit/d89/azure-services"
-)
-
 
 def _post(path, payload, timeout=600):
     req = urllib.request.Request(

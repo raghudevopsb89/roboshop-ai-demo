@@ -1,31 +1,59 @@
-"""Step 1: mirror the real RoboShop SQL data into a local SQLite database.
+"""Step 1: load the RoboShop SQL data into a local SQLite database.
 
-Unlike rag-demo-1 -- which invented a company -- this demo indexes REAL data from
-the azure-services monorepo. We read the actual .sql files the services ship with
-and replay them into a local roboshop.db, so the demo never forks the data and
-never needs Azure, MySQL or the network.
+The data lives in two files next to this script -- catalogue.sql and
+shipping.sql -- lifted from the RoboShop services. They are MySQL dumps and are
+INSERT-only (no CREATE TABLE), so this script supplies the two table
+definitions itself and then replays the inserts.
 
-Those files are MySQL, so a handful of dialect fixes are applied on the way in
-(see translate()). Only DDL/DML we actually use is handled -- this is a demo
-loader, not a general MySQL-to-SQLite porting tool.
+Keeping the schema here rather than in a third .sql file means catalogue.sql and
+shipping.sql stay the single source of truth for the *data*: drop in new rows and
+re-run, nothing else to keep in sync.
+
+A few MySQL-isms are rewritten on the way in -- see translate().
 
 Usage:
     python3 setup_db.py
-    AZURE_REPO=/path/to/azure-services python3 setup_db.py
 """
 import os
 import re
 import sqlite3
 import sys
 
-from common import AZURE_REPO, DB_PATH, rule
+from common import DB_PATH, rule
 
-# (label, path relative to the azure-services repo root)
+HERE = os.path.dirname(os.path.abspath(__file__))
+
+# The INSERT files carry no DDL, so the tables are declared here. Column names
+# and order match the INSERT column lists in the .sql files exactly.
+SCHEMA = """
+DROP TABLE IF EXISTS products;
+CREATE TABLE products (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    sku         TEXT UNIQUE NOT NULL,
+    name        TEXT NOT NULL,
+    description TEXT,
+    price       REAL NOT NULL,
+    image_url   TEXT,
+    category    TEXT,
+    stock       INTEGER DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+DROP TABLE IF EXISTS cities;
+CREATE TABLE cities (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    country_code TEXT NOT NULL,
+    city         TEXT NOT NULL,
+    region       TEXT,
+    latitude     REAL,
+    longitude    REAL
+);
+"""
+
+# (label, filename, table it populates)
 SOURCES = [
-    ("catalogue schema", "apps/roboshop-catalogue/db/schema.sql"),
-    ("catalogue data",   "apps/roboshop-catalogue/db/master-data.sql"),
-    ("cities schema",    "apps/roboshop-shipping/db/schema.sql"),
-    ("cities data",      "apps/roboshop-shipping/src/main/resources/data.sql"),
+    ("catalogue products", "catalogue.sql", "products"),
+    ("shipping cities",    "shipping.sql",  "cities"),
 ]
 
 
@@ -45,37 +73,26 @@ def translate(sql):
 
 
 def main():
-    if not os.path.isdir(AZURE_REPO):
-        sys.exit(
-            f"azure-services repo not found at: {AZURE_REPO}\n"
-            f"Set AZURE_REPO=/path/to/azure-services and re-run."
-        )
-
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
 
     conn = sqlite3.connect(DB_PATH)
+    conn.executescript(SCHEMA)
 
-    print(rule("MIRRORING ROBOSHOP SQL INTO SQLITE"))
-    print(f"source repo: {AZURE_REPO}")
-    print(f"target db:   {DB_PATH}\n")
+    print(rule("LOADING ROBOSHOP SQL INTO SQLITE"))
+    print(f"target db: {DB_PATH}\n")
 
-    for label, rel in SOURCES:
-        path = os.path.join(AZURE_REPO, rel)
+    for label, filename, table in SOURCES:
+        path = os.path.join(HERE, filename)
         if not os.path.exists(path):
             sys.exit(f"missing source file: {path}")
         with open(path) as f:
             conn.executescript(translate(f.read()))
-        print(f"  loaded {label:<18} <- {rel}")
-    conn.commit()
-
-    print("\ntables:")
-    for (table,) in conn.execute(
-        "SELECT name FROM sqlite_master WHERE type='table' "
-        "AND name NOT LIKE 'sqlite_%' ORDER BY name"
-    ):
         n = conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
-        print(f"  {table:<20} {n:>3} rows")
+        if not n:
+            sys.exit(f"{filename} loaded but {table} is empty -- check the file")
+        print(f"  loaded {label:<20} <- {filename:<16} {n:>3} rows")
+    conn.commit()
 
     print("\nSample -- three products:")
     for row in conn.execute(

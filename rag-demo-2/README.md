@@ -62,7 +62,7 @@ a widely-used public DevOps training app, so `llama3.2:3b` has *some* genuine
 knowledge of its microservice architecture. Ask "what services does RoboShop
 have" and the no-RAG answer is partly right, which muddies the contrast. Every
 question in `questions.py` is therefore about **catalogue and shipping data** —
-the 12 products are invented for this monorepo, so the model cannot know them
+the 12 products are invented for RoboShop, so the model cannot know them
 and fails cleanly. Q5 (Tokyo → Kanto) is deliberately left as the weak one: it is
 real-world public knowledge, so the model often gets it right by luck. That is an
 honest illustration that hallucination is not uniform — it fails hardest on
@@ -83,9 +83,16 @@ alongside cosine.
 
 | File | Step |
 |---|---|
+| `catalogue.sql` | the data — 12 RoboShop products (INSERT-only) |
+| `shipping.sql` | the data — 25 shipping destinations (INSERT-only) |
 | `common.py` | Ollama client, cosine, config |
-| `setup_db.py` | 1 — mirror the real SQL into `roboshop.db` |
+| `setup_db.py` | 1 — load the two `.sql` files into `roboshop.db` |
 | `ask_raw.py` | 2 — ask with **no** context (the hallucination half) |
 | `build_index.py` | 3 — rows → prose facts → embeddings → `rag_index` |
 | `ask_rag.py` | 4 — retrieve top-k and answer, grounded |
 | `questions.py` | the demo questions + ground truth from SQL |
+
+Both `.sql` files are INSERT-only MySQL dumps, so `setup_db.py` supplies the two
+`CREATE TABLE` definitions itself and rewrites the MySQL-isms on the way in
+(`USE` dropped, `INSERT IGNORE` → `INSERT OR IGNORE`). To change the demo data,
+edit those two files and re-run steps 1 and 3 — nothing else needs touching.
