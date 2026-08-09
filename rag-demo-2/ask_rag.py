@@ -133,7 +133,7 @@ def retrieve(question, k=TOP_K, alpha=HYBRID_ALPHA):
     return scored[:k]
 
 
-def ask(question, truth=None, show=False):
+def ask(question, show=False):
     hits = retrieve(question)
     context = "\n".join(f"- {txt}" for _, _, _, _, txt in hits)
 
@@ -149,9 +149,6 @@ def ask(question, truth=None, show=False):
     prompt = f"CONTEXT:\n{context}\n\nQUESTION: {question}"
     print(rule("MODEL ANSWER  (grounded in the retrieved context above)"))
     print(chat(prompt, system=SYSTEM))
-    if truth:
-        print(rule("GROUND TRUTH  (read from SQL -- never shown to the model)"))
-        print(truth)
 
 
 def main():
@@ -163,11 +160,10 @@ def main():
     print(f"model: {CHAT_MODEL}   |   context supplied: top-{TOP_K} SQL facts")
 
     if not arg:
-        for item in QUESTIONS:
-            ask(item["q"], item["truth"], show)
+        for q in QUESTIONS:
+            ask(q, show)
     elif arg.isdigit():
-        item = QUESTIONS[int(arg) - 1]
-        ask(item["q"], item["truth"], show)
+        ask(QUESTIONS[int(arg) - 1], show)
     else:
         ask(arg, show=show)
 

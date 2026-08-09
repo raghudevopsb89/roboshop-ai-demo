@@ -41,14 +41,11 @@ if os.environ.get("NEUTRAL"):
     SYSTEM = NEUTRAL_SYSTEM
 
 
-def ask(q, truth=None):
+def ask(q):
     print(rule("NO RAG  (model answers from parametric memory only)"))
     print(f"Q: {q}\n")
     print(rule("MODEL ANSWER  (no context supplied -- expect fabrication)"))
     print(chat(q, system=SYSTEM))
-    if truth:
-        print(rule("GROUND TRUTH  (read from SQL -- never shown to the model)"))
-        print(truth)
 
 
 def main():
@@ -57,11 +54,10 @@ def main():
     print(f"model: {CHAT_MODEL}   |   context: NONE   |   persona: {persona}")
 
     if not arg:
-        for item in QUESTIONS:
-            ask(item["q"], item["truth"])
+        for q in QUESTIONS:
+            ask(q)
     elif arg.isdigit():
-        item = QUESTIONS[int(arg) - 1]
-        ask(item["q"], item["truth"])
+        ask(QUESTIONS[int(arg) - 1])
     else:
         ask(arg)
 

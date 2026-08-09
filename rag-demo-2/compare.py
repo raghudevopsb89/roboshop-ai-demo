@@ -1,8 +1,8 @@
 """The money shot: run one question BOTH ways and print the answers together.
 
 This is what to put on a screen. ask_raw.py and ask_rag.py each show one half,
-which makes the contrast easy to miss -- especially since both of them end with
-the same GROUND TRUTH line, which is read from SQL and never shown to the model.
+so the contrast is split across two scrollbacks; here the fabricated answer and
+the grounded one sit directly above and below each other.
 
 Usage:
     python3 compare.py            # every demo question, both ways
@@ -18,7 +18,7 @@ import ask_rag
 import ask_raw
 
 
-def compare(question, truth=None):
+def compare(question):
     print(rule(f"Q: {question}"))
 
     print("\n### WITHOUT RAG -- no context, naive assistant persona\n")
@@ -30,10 +30,6 @@ def compare(question, truth=None):
 
     print(f"\n### WITH RAG -- top-{len(hits)} facts retrieved from SQL\n")
     print(chat(prompt, system=ask_rag.SYSTEM))
-
-    if truth:
-        print("\n### GROUND TRUTH -- read from SQL, never shown to the model\n")
-        print(truth)
     print()
 
 
@@ -42,11 +38,10 @@ def main():
     print(f"model: {CHAT_MODEL}   |   comparing NO-RAG vs RAG on the same question")
 
     if not arg:
-        for item in QUESTIONS:
-            compare(item["q"], item["truth"])
+        for q in QUESTIONS:
+            compare(q)
     elif arg.isdigit():
-        item = QUESTIONS[int(arg) - 1]
-        compare(item["q"], item["truth"])
+        compare(QUESTIONS[int(arg) - 1])
     else:
         compare(arg)
 

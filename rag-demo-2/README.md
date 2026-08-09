@@ -126,7 +126,7 @@ because ROB001 scores well on *both* signals while ROB007 wins on only one.
 | `build_index.py` | 3 — rows → prose facts → embeddings → `rag_index` |
 | `ask_rag.py` | 4 — hybrid retrieve top-k and answer, grounded |
 | `compare.py` | both halves of one question, in one output |
-| `questions.py` | the demo questions + ground truth from SQL |
+| `questions.py` | the demo questions |
 
 Both `.sql` files are INSERT-only MySQL dumps, so `setup_db.py` supplies the two
 `CREATE TABLE` definitions itself and rewrites the MySQL-isms on the way in
