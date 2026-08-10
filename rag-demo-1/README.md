@@ -19,6 +19,12 @@ ollama pull nomic-embed-text
 ollama pull llama3.2:3b
 ```
 
+Clone this repo
+
+```aiignore
+https://github.com/raghudevopsb89/roboshop-ai-demo.git
+```
+
 Before RAG
 
 ```bash
