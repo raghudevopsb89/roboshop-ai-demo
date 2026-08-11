@@ -6,17 +6,17 @@
 #   make new-env ENV=<yourname>
 #
 # env-dev/ is a separate, hand-maintained environment that is already deployed.
-# It is NOT this template, and it carries an extra model (see below).
+# It is NOT this template, though it now deploys the same two models.
 
 env = "ENV_PLACEHOLDER"
 
 # Sweden Central, matching env-dev.
 #
-# Note the original reason for this region no longer applies here: it was
-# chosen because Ministral-3B is not offered in Denmark East, and this template
-# does not deploy Ministral-3B. Both models below are first-party OpenAI models
-# with much broader regional coverage, so you may move this closer to
-# azure-services/infra (Denmark East) if you prefer.
+# env-dev is pinned here for a historical reason (a Mistral model that is no
+# longer deployed) and cannot move without recreating the account. A NEW
+# environment has no such constraint: both models below are first-party with
+# broad regional coverage, so you may put this closer to azure-services/infra
+# (Denmark East) if you prefer.
 #
 # Verify before applying, because availability and SKUs vary per model AND per
 # region:  make models RG=denmark-east-rg ENV=<yourname>
@@ -33,14 +33,11 @@ foundry_name = ""
 # The map key is the DEPLOYMENT name -- that is the string the demo code sends
 # in the `model` field, not the model name.
 #
-# Ministral-3B is deliberately NOT here, though env-dev has it. Two reasons:
-# Azure hard-caps it at capacity = 1, which throttles a RAG turn with 429
-# RateLimitReached and throttles a tool-calling loop harder still; and being a
-# Marketplace (Mistral AI) model, it needs a Marketplace subscription accepted
-# on the subscription before apply will succeed. It exists in env-dev only to
-# demo small-model failure modes next to a capable model -- see
-# rag-demo-4/README.md section 3. To opt back in, add it with capacity = 1 and
-# accept the Marketplace terms first.
+# Keep these first-party (model_format = "OpenAI"). A Marketplace/partner model
+# such as Ministral-3B needs a Marketplace purchase accepted on the
+# subscription before apply will succeed, and the one we tried was hard-capped
+# by Azure at capacity = 1 -- too little to serve a RAG prompt without 429
+# RateLimitReached, and worse inside a tool-calling loop.
 model_deployments = {
   # Chat, first-party. Tool-calling capable, which rag-demo-4/ask_live.py needs.
   # capacity 50 is enough for a RAG-sized prompt; lower it if several people

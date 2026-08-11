@@ -7,9 +7,11 @@ terraform {
   required_providers {
     azurerm = {
       source = "hashicorp/azurerm"
-      # 4.27+ is required: earlier versions hardcoded model.format to "OpenAI"
-      # only, which makes the Ministral-3B deployment ("Mistral AI") fail at
-      # plan time. See hashicorp/terraform-provider-azurerm#29143.
+      # Pinned at 4.27+. Originally required because earlier versions hardcoded
+      # model.format to "OpenAI" only, so any non-OpenAI format (the old
+      # "Mistral AI" deployment) failed at plan time --
+      # hashicorp/terraform-provider-azurerm#29143. Only OpenAI-format models
+      # are deployed now, but there is no reason to go back.
       version = "~> 4.27"
     }
   }

@@ -2,13 +2,13 @@ env = "dev"
 
 # Sweden Central, NOT Denmark East.
 #
-# azure-services/infra runs in Denmark East, but Ministral-3B is not offered
-# there -- its Global Standard availability list covers francecentral,
-# germanywestcentral, italynorth, norwayeast, polandcentral, spaincentral,
-# swedencentral, switzerlandnorth/west, uksouth, ukwest and westeurope.
-# Sweden Central is the closest listed region to the existing infra.
+# This region was originally forced by Ministral-3B, which is not offered in
+# Denmark East. That model is gone now, and both remaining models are
+# first-party with broad regional coverage -- but this resource is already
+# DEPLOYED here. Changing location would destroy and recreate the Foundry
+# account and every deployment in it, so leave it alone unless you mean that.
 #
-# Verify before applying:  make models
+# Verify availability before adding any model:  make models
 location = "swedencentral"
 
 # Reusing the existing resource group. A resource group is only a container --
@@ -22,35 +22,14 @@ foundry_name = ""
 # The map key is the DEPLOYMENT name -- that is the string the demo code sends
 # in the `model` field, not the model name.
 model_deployments = {
-  # Chat. Tool-calling capable, which demo 3 needs. Partner/Marketplace model:
-  # see the Marketplace caveat in the README before applying.
-  # capacity MUST be 1 -- Azure rejects anything else for this model with
-  # "InvalidCapacity: ... should be at least 1 and no more than 1". The
-  # AIServices.GlobalStandard.MaaS pool shows 600 units available, but that is
-  # a subscription-wide pool, not a per-deployment ceiling.
+  # Chat, first-party. Tool-calling capable, which rag-demo-4/ask_live.py needs.
+  # This is the deployment rag-demo-4 uses.
   #
-  # Consequence, and it is a real one: throughput is low enough that a RAG turn
-  # (five retrieved chunks of context) can trip 429 RateLimitReached. common.py
-  # backs off and honours Retry-After, so it recovers, but a full
-  # `python3 ask_rag.py` over all five questions will be slow and may still
-  # throttle. Swap chat_deployment_name to a first-party model if you need the
-  # demo to run briskly -- see README.
-  "Ministral-3B" = {
-    model_name    = "Ministral-3B"
-    model_format  = "Mistral AI"
-    model_version = "1"
-    sku_name      = "GlobalStandard"
-    capacity      = 1
-  }
-
-  # Chat, first-party. Added because Ministral-3B's mandatory capacity=1 is not
-  # enough throughput to serve a RAG prompt -- see the note above. This is the
-  # deployment rag-demo-4 uses by default.
-  #
-  # Keeping both is useful rather than redundant: Ministral-3B is a 3B model
-  # like the local llama3.2:3b, so it shows the same small-model failure modes,
-  # while this one shows what a capable model does with the identical prompt.
-  # Flip between them with CHAT_MODEL=... at the shell.
+  # A Ministral-3B deployment used to sit here as a small-model counterpart to
+  # this one. It was removed: Azure hard-caps it at capacity = 1, which is too
+  # little to serve a RAG prompt (429 RateLimitReached) and worse for a
+  # tool-calling loop, and being a Marketplace model it needed a subscription
+  # purchase step before apply would succeed. Nothing depends on it now.
   "gpt-5-mini" = {
     model_name    = "gpt-5-mini"
     model_format  = "OpenAI"
@@ -81,6 +60,4 @@ model_deployments = {
 #   az vm identity show -g <rg> -n <vm> --query principalId -o tsv
 inference_principal_ids = []
 
-# rag-demo-4 defaults to the first-party model: Ministral-3B is capped at
-# capacity=1, too little throughput for a RAG-sized prompt.
 chat_deployment_name = "gpt-5-mini"

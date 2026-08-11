@@ -3,7 +3,8 @@ variable "env" {
 }
 
 # NOTE: this is deliberately NOT the same location as azure-services/infra
-# (Denmark East). Ministral-3B is not offered there. See README.
+# (Denmark East). Model availability varies per region -- check with
+# `make models` before adding one. See README.
 variable "location" {
   description = "Region for the Foundry resource."
   type        = string
@@ -41,7 +42,7 @@ variable "inference_principal_ids" {
 # be keys of model_deployments.
 variable "chat_deployment_name" {
   type    = string
-  default = "Ministral-3B"
+  default = "gpt-5-mini"
 }
 
 variable "embed_deployment_name" {

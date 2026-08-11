@@ -16,7 +16,7 @@ yourself -- both work:
 Real environment variables always win over the file, so you can override a
 single value for one run without editing anything:
 
-    CHAT_MODEL=Ministral-3B ROBOSHOP_PROFILE=raghu python3 ask_rag.py 1
+    CHAT_MODEL=gpt-5-nano ROBOSHOP_PROFILE=raghu python3 ask_rag.py 1
 
 Imported for its side effect by common.py and tools.py, both of which read
 os.environ at import time -- so this has to land first.

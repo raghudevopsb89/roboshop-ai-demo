@@ -39,15 +39,17 @@ AZURE_KEY = os.environ.get("AZURE_KEY", "")
 
 # These are DEPLOYMENT names from the Terraform, not model names. They only
 # match the model names because infra/env-dev/main.tfvars names them alike.
-CHAT_MODEL = os.environ.get("CHAT_MODEL", "Ministral-3B")
+CHAT_MODEL = os.environ.get("CHAT_MODEL", "gpt-5-mini")
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "text-embedding-3-small")
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(HERE, "roboshop.db")
 
-# Ministral-3B is capped at capacity=1 by Azure (see infra/env-dev/main.tfvars),
-# which is little enough throughput that a RAG turn -- five retrieved chunks of
-# context -- can trip 429. So the retry budget here is deliberately generous.
+# Hosted endpoints throttle. A RAG turn carries five retrieved chunks of
+# context, and a tool-calling turn is several round trips, so 429 is a normal
+# operating condition rather than an error -- the retry budget is deliberately
+# generous and _post() honours Retry-After. Lower deployment capacity in
+# infra/ makes this more likely, not less.
 MAX_RETRIES = int(os.environ.get("MAX_RETRIES", "6"))
 
 
@@ -125,11 +127,11 @@ _TEMPERATURE_OK = True
 def complete(messages, tools=None, temperature=0.0):
     """One /chat/completions round trip. Returns the assistant message dict.
 
-    temperature=0 is what keeps demos 1 and 2 reproducible, and Ministral-3B
-    honours it. The GPT-5 family does NOT: it accepts only its default and
-    returns 400 "does not support 0 with this model" for anything else. Rather
-    than hardcode which is which -- a list that would rot -- send it, and drop
-    it permanently for the run if the model objects.
+    temperature=0 is what keeps demos 1-3 reproducible, and most models honour
+    it. The GPT-5 family does NOT: it accepts only its default and returns 400
+    "does not support 0 with this model" for anything else. Rather than
+    hardcode which is which -- a list that would rot -- send it, and drop it
+    permanently for the run if the model objects.
 
     Pass `tools` to let the model call functions instead of answering; the reply
     then carries `tool_calls` and an empty `content`. See ask_live.py.

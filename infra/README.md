@@ -39,13 +39,9 @@ ENV=raghu make destroy
 key (`roboshop-ai-demo/<env>/terraform.tfstate`) and `env`, which drives
 `roboshop-<env>-foundry`.
 
-The template deploys **`gpt-5-mini` + `text-embedding-3-small` only**.
-`env-dev/` is not the template — it is a separate, already-deployed environment
-that additionally carries `Ministral-3B`, kept there for the small-model
-comparison in `rag-demo-4/README.md` §3. New environments skip it because Azure
-hard-caps it at `capacity = 1`, too little to serve a RAG prompt, and it needs a
-Marketplace subscription accepted before `apply` will work. `template/main.tfvars`
-records how to opt back in.
+The template deploys **`gpt-5-mini` + `text-embedding-3-small`**. `env-dev/` is
+not the template — it is a separate, already-deployed environment, pinned to its
+region and carrying whatever hand edits it has accumulated.
 
 `ENV` defaults to `dev`, so `make dev` and the existing `roboshop-dev-foundry`
 state behave exactly as before. `make new-env ENV=dev` and `ENV=template` are
@@ -84,33 +80,35 @@ To keep embeddings local, delete the `text-embedding-3-small` entry from
 which silently truncates to the shorter vector rather than erroring — you'd get
 plausible-looking garbage scores instead of a crash.
 
-### 2. Ministral-3B is a Marketplace model
+### 2. Keep to first-party models
 
-**This no longer applies to a fresh `make new-env`** — `template/` does not
-deploy Ministral-3B, so none of the below blocks you. It is still true for
-`env-dev`, and for anyone who opts the model back in.
-
-It's a partner/community model, not first-party, which means:
+Everything deployed here is `model_format = "OpenAI"`. Adding a
+partner/Marketplace model (Mistral, Cohere, Meta…) brings restrictions that are
+easy to hit:
 
 - It bills through **Azure Marketplace**, not Azure meters.
 - Your subscription needs `Microsoft.SaaS/register/action` and the
   `Microsoft.MarketplaceOrdering/*` permissions. Subscription **Owner** or
   **Contributor** covers these.
 - **Free-trial, student, and credit-only subscriptions cannot purchase
-  Marketplace SaaS offers.** If you're on the $200 trial credit, this apply will
-  fail with a Marketplace eligibility error.
+  Marketplace SaaS offers.** On the $200 trial credit the apply fails with a
+  Marketplace eligibility error.
 
-If that blocks you, swap to a first-party model — `gpt-5.1-mini`, format
-`OpenAI` — which has none of these restrictions. That's a one-line change in
-`env-dev/main.tfvars`.
+This stack used to deploy `Ministral-3B` for a small-model comparison and hit
+all of the above, plus an Azure-imposed `capacity = 1` that was too little to
+serve a RAG prompt. It has been removed. If you want a small model to compare
+against, the local Ollama one in `rag-demo-1`/`rag-demo-2` fills that role
+without any of this.
 
 ### 3. The region is deliberately not Denmark East
 
-`azure-services/infra` runs in Denmark East. Ministral-3B is not offered there;
-its Global Standard region list covers `francecentral`, `germanywestcentral`,
-`italynorth`, `norwayeast`, `polandcentral`, `spaincentral`, `swedencentral`,
-`switzerlandnorth`, `switzerlandwest`, `uksouth`, `ukwest`, `westeurope`. This
-stack defaults to `swedencentral`, the closest listed region.
+`azure-services/infra` runs in Denmark East; this stack defaults to
+`swedencentral`. That split was originally forced by a Mistral model that
+Denmark East does not offer. It no longer is — the remaining models are
+first-party with broad coverage — but `env-dev` is already deployed in
+`swedencentral` and moving it would destroy and recreate the account, so it
+stays. A new environment may pick whichever region suits; verify with
+`make models`.
 
 The resource group is still `denmark-east-rg` — a resource group is only a
 container and can hold resources from any region.

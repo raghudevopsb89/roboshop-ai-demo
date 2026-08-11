@@ -14,7 +14,7 @@ what did not.
 | Piece | Choice | Why |
 |---|---|---|
 | Endpoint | Foundry, `../infra` Terraform stack | `make dev` there first |
-| Chat model | `gpt-5-mini` (default), `Ministral-3B` (alt) | see "Two chat models" |
+| Chat model | `gpt-5-mini` | see "The chat model" |
 | Embeddings | `text-embedding-3-small`, 1536-dim | replaces `nomic-embed-text` |
 | Vector store | `rag_index` table in `roboshop.db` | unchanged from demo 2 |
 | Python deps | **none** — standard library only | `/openai/v1/` is plain REST |
@@ -44,7 +44,7 @@ export ROBOSHOP_PROFILE=<yourname>
 always beats the file, so you can override one value for a single run:
 
 ```bash
-CHAT_MODEL=Ministral-3B python3 ask_rag.py 1
+CHAT_MODEL=gpt-5-nano python3 ask_rag.py 1
 ```
 
 Exporting the four variables by hand still works and needs no profile:
@@ -69,7 +69,7 @@ Switches:
 ```bash
 python3 tune_alpha.py                    # re-derive HYBRID_ALPHA (see below)
 HYBRID_ALPHA=0 python3 ask_rag.py 1      # pure vector search
-CHAT_MODEL=Ministral-3B python3 ask_rag.py 1
+CHAT_MODEL=gpt-5-nano python3 ask_rag.py 1   # any deployment in your tfvars
 NEUTRAL=1 python3 ask_raw.py 1
 python3 ask_rag.py --show 1
 ```
@@ -128,26 +128,22 @@ push you off.
 Reporting a flat curve as flat is the lesson. A tuner that printed a confident
 optimum off this data would be lying.
 
-### 3. Two chat models, and neither behaved as assumed
-
-**`Ministral-3B` may not exist in your environment.** It is deployed in
-`env-dev` only — `infra/template/`, which `make new-env` scaffolds from, leaves
-it out. In a fresh environment `CHAT_MODEL=Ministral-3B` returns 404
-`DeploymentNotFound` unless you add it back to your own `main.tfvars`. The rest
-of this section describes why it is not worth deploying.
-
-**It is deployed in `env-dev` but is not the default there either.** Azure caps it at
-`capacity = 1` — literally, it rejects any other value — and that is not enough
-throughput for a RAG turn. A five-chunk context reliably returns 429
-`RateLimitReached`, and it keeps returning it through the full retry budget
-even honouring `Retry-After`. It works fine for short prompts. Use it to show
-small-model behaviour; don't build the demo on it.
+### 3. The chat model did not behave as assumed
 
 **`gpt-5-mini` rejects `temperature=0`** — only its default is allowed. Demos
-1–3 all pass `temperature=0` for reproducibility, and Ministral-3B honours it.
+1–3 all pass `temperature=0` for reproducibility and their models honour it.
 `common.py` sends it, notices the 400, and drops it for the rest of the run
 rather than hardcoding a model list that would rot. Consequence worth saying on
 screen: **demo 4's answers are not bit-reproducible** the way demos 1–3 are.
+
+**A small hosted model is not the way to show small-model behaviour.** A
+`Ministral-3B` deployment was tried for exactly that, as a hosted counterpart to
+the local `llama3.2:3b`. It was removed: Azure hard-caps it at `capacity = 1`,
+which returns 429 `RateLimitReached` on a five-chunk RAG turn and keeps
+returning it through the full retry budget even honouring `Retry-After` — and
+being a Marketplace model it needs a subscription purchase before `apply` will
+succeed. Demos 1 and 2 already run a 3B model locally, for free, with no quota.
+That is the better place for the comparison.
 
 **`gpt-4o-mini` cannot be deployed at all** any more — `ServiceModelDeprecating`.
 Model coordinates rot; `make models` in `../infra` lists what your region
@@ -216,8 +212,9 @@ python3 ask_live.py --quiet 1
 | `get_sales_for_sku(sku)` | MongoDB | units sold, revenue |
 | `get_recent_orders(limit)` | MongoDB | recent orders, newest first |
 
-**Use `gpt-5-mini`, not `Ministral-3B`.** A tool-calling turn is several round
-trips, so `capacity = 1` throttles even harder here than it does on a RAG turn.
+**Give the chat deployment room.** A tool-calling turn is several round trips,
+not one, so it throttles sooner than a RAG turn does. If you lowered
+`capacity` in your `main.tfvars` to save quota, this is where you notice.
 
 **The orders collection is empty.** Orders are written only when a checkout
 completes through payment and Service Bus, and nothing seeds them. The sales

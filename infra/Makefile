@@ -44,9 +44,9 @@ dev-destroy: destroy
 
 # Scaffold a new person's environment from template/.
 #
-# NOT from env-dev/: that is an already-deployed environment which also carries
-# Ministral-3B (Marketplace model, capacity hard-capped at 1). New environments
-# get gpt-5-mini + text-embedding-3-small only. See template/main.tfvars.
+# NOT from env-dev/: that is an already-deployed environment, pinned to its
+# region and carrying whatever hand edits it has accumulated. template/ is the
+# clean starting point -- gpt-5-mini + text-embedding-3-small.
 new-env:
 	@test "$(ENV)" != "dev" || { \
 	  echo "env-dev is a live, hand-maintained environment -- pick your own name:"; \
@@ -61,7 +61,7 @@ new-env:
 	@grep -H '^key' $(DIR)/state.tfvars
 	@grep -H '^env ' $(DIR)/main.tfvars
 	@echo "-> foundry_name will be roboshop-$(ENV)-foundry (must be globally unique)"
-	@echo "-> deploys gpt-5-mini + text-embedding-3-small (no Ministral-3B)"
+	@echo "-> deploys gpt-5-mini + text-embedding-3-small"
 	@echo "-> check region + model availability in $(DIR)/main.tfvars, then:"
 	@echo "   ENV=$(ENV) make plan"
 
