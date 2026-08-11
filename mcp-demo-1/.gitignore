@@ -4,3 +4,5 @@ __pycache__/
 .env
 *.log
 roboshop.db
+.mcp_token
+mcp.log

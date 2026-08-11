@@ -68,6 +68,20 @@ make run
 Everything in this README runs from this directory. Nothing else in the repo is
 required.
 
+**On a server**, `make run-sqlite` holds the terminal and dies with your SSH
+session. Run it detached instead:
+
+```bash
+make daemon      # stops any old instance, starts detached, prints the pid
+make status
+make logs        # follow
+make stop
+```
+
+`daemon.sh` generates a token into `.mcp_token` on first run (gitignored) and
+reuses it after, so restarts do not invalidate a client you already configured.
+Override with `MCP_TOKEN=... make daemon`.
+
 Verify from another shell:
 
 ```bash
@@ -187,7 +201,8 @@ header.
 | `setup_db.py` | builds `roboshop.db` for the sqlite backend |
 | `catalogue.sql`, `shipping.sql` | the data — 12 products, 25 cities |
 | `smoke_test.py` | proves the tools work *and* that the token protects them |
-| `Makefile` | `venv`, `token`, `db`, `run`, `run-sqlite`, `test`, `inspect`, `inspect-cli` |
+| `daemon.sh` | start/stop/status/log, detached — for running on a server |
+| `Makefile` | `venv`, `db`, `run`, `run-sqlite`, `daemon`, `stop`, `status`, `logs`, `test`, `inspect`, `inspect-cli` |
 
 ## Demo running order
 

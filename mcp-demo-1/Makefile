@@ -26,6 +26,12 @@ run: ; MCP_BIND_HOST=$(HOST) $(PY) server.py
 run-sqlite: db
 	MCP_BIND_HOST=$(HOST) ROBOSHOP_BACKEND=sqlite $(PY) server.py
 
+# Detached: survives closing the SSH session. Use this on a server.
+daemon: ; ./daemon.sh start
+stop:   ; ./daemon.sh stop
+status: ; ./daemon.sh status
+logs:   ; ./daemon.sh log
+
 test: ; $(PY) smoke_test.py
 
 URL ?= http://localhost:8080/mcp
@@ -48,4 +54,4 @@ inspect-cli:
 
 clean: ; rm -rf $(VENV) __pycache__
 
-.PHONY: venv token db run run-sqlite test inspect inspect-cli clean
+.PHONY: venv token db run run-sqlite daemon stop status logs test inspect inspect-cli clean
