@@ -34,7 +34,7 @@ import uvicorn
 from mcp.server.mcpserver import MCPServer
 from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse
 
 import backend
 
@@ -50,8 +50,22 @@ PATH = os.environ.get("MCP_PATH", "/mcp")
 # refused unless that name is listed here. This is the single most likely way
 # to lose twenty minutes during the demo.
 #   export MCP_ALLOWED_HOSTS="9.205.158.76:8080,roboshop-vm:8080"
-ALLOWED_HOSTS = [h.strip() for h in os.environ.get("MCP_ALLOWED_HOSTS", "").split(",") if h.strip()]
+_HOSTS_ENV = os.environ.get("MCP_ALLOWED_HOSTS", "")
+ALLOWED_HOSTS = [h.strip() for h in _HOSTS_ENV.split(",") if h.strip()]
 ALLOWED_HOSTS += ["localhost", "localhost:*", "127.0.0.1", "127.0.0.1:*"]
+
+# Binding to anything other than loopback means remote clients, and a remote
+# client's Host header is whatever address it dialled -- an IP, a DNS name, a
+# load balancer. Listing them all up front is guesswork, and getting it wrong
+# fails as "421 Invalid Host header" long after the token checked out.
+#
+# So when you bind publicly and have NOT pinned the list yourself, rebinding
+# protection is switched off and any Origin is accepted. That protection exists
+# to stop a malicious web page driving a server bound to a developer's
+# localhost; it is not what is guarding this one. The bearer token is, and it
+# is still required on every request.
+OPEN_HOST = BIND_HOST not in ("127.0.0.1", "localhost", "::1")
+PERMISSIVE = OPEN_HOST and not _HOSTS_ENV
 
 # The same protection also checks Origin, and rejects an unlisted one with
 # "403 Invalid Origin header". Server-to-server clients send no Origin and are
@@ -143,7 +157,9 @@ class BearerAuth:
     a colleague can check liveness without holding the token.
     """
 
-    PUBLIC = {"/healthz"}
+    # "/" is public and deliberately so: someone who pastes the server address
+    # into a browser should be told what this is, not handed a bare 401.
+    PUBLIC = {"/healthz", "/"}
 
     def __init__(self, app, token):
         self.app = app
@@ -174,7 +190,72 @@ class BearerAuth:
 async def healthz(_request):
     """Unauthenticated liveness probe. Reveals the backend kind, never secrets."""
     return JSONResponse({"status": "ok", "backend": backend.BACKEND,
-                         "tools": 4, "ts": int(time.time())})
+                         "tools": 4,
+                         # "any" when bound publicly without a pinned host list;
+                         # smoke_test.py checks the matching contract.
+                         "host_check": "any" if PERMISSIVE else "pinned",
+                         "ts": int(time.time())})
+
+
+@mcp.custom_route("/", methods=["GET"])
+async def index(request):
+    """A signpost, not an app.
+
+    Opening the server address in a browser is the obvious thing to try, and
+    an MCP endpoint cannot answer it -- it is JSON-RPC over POST with a session
+    handshake. Saying so here saves the "why do I get unauthorized" detour.
+    Leaks nothing: no token, no connection strings.
+    """
+    host = request.headers.get("host", f"{BIND_HOST}:{PORT}")
+    return HTMLResponse(f"""<!doctype html>
+<meta charset="utf-8"><title>RoboShop MCP server</title>
+<style>body{{font:15px/1.6 system-ui,sans-serif;max-width:44rem;margin:3rem auto;padding:0 1rem}}
+code,pre{{background:#f4f4f5;border-radius:4px}} code{{padding:.1em .35em}}
+pre{{padding:.8em;overflow-x:auto}} .m{{color:#666}}</style>
+<h1>RoboShop MCP server</h1>
+<p><strong>This is not a website.</strong> It is an MCP endpoint at
+<code>/mcp</code> — JSON-RPC over POST, with a bearer token. There is no page
+to browse here.</p>
+<p>To use it, run MCP Inspector <em>on your own machine</em>:</p>
+<pre>npx -y @modelcontextprotocol/inspector</pre>
+<p>Then in the Inspector UI:</p>
+<pre>Transport : Streamable HTTP
+URL       : http://{host}/mcp
+Header    : Authorization: Bearer &lt;your MCP_TOKEN&gt;</pre>
+<p>Or without a browser:</p>
+<pre>npx -y @modelcontextprotocol/inspector --cli \\
+  --transport http --server-url http://{host}/mcp \\
+  --header "Authorization: Bearer $MCP_TOKEN" \\
+  --method tools/list</pre>
+<p class="m">Tools: get_product, get_stock, get_sales_for_sku,
+get_recent_orders &nbsp;·&nbsp; backend: {backend.BACKEND} &nbsp;·&nbsp;
+liveness: <a href="/healthz">/healthz</a></p>
+""")
+
+
+def _public_address():
+    """A host:port a client elsewhere can actually dial.
+
+    0.0.0.0 is a bind address, not somewhere you can connect to -- printing it
+    in the "use this URL" line sends people to a dead address. Prefer
+    MCP_PUBLIC_HOST, else this machine's outward-facing IP, else the bind host.
+    """
+    explicit = os.environ.get("MCP_PUBLIC_HOST", "").strip()
+    if explicit:
+        return explicit
+    if BIND_HOST not in ("0.0.0.0", "::"):
+        return BIND_HOST
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        # No packets are sent; this just asks the kernel which local address
+        # would be used to reach the outside, which is the one to advertise.
+        s.connect(("8.8.8.8", 53))
+        return s.getsockname()[0]
+    except OSError:
+        return "localhost"
+    finally:
+        s.close()
 
 
 def build_app():
@@ -185,17 +266,16 @@ def build_app():
     answered before BearerAuth can 401 it. Get this backwards and MCP
     Inspector's web UI fails to connect with a bare CORS error and no clue why.
     """
-    app = mcp.streamable_http_app(
-        streamable_http_path=PATH,
-        transport_security=TransportSecuritySettings(
-            allowed_hosts=ALLOWED_HOSTS,
-            allowed_origins=ALLOWED_ORIGINS,
-        ),
-    )
+    security = (TransportSecuritySettings(enable_dns_rebinding_protection=False)
+                if PERMISSIVE else
+                TransportSecuritySettings(allowed_hosts=ALLOWED_HOSTS,
+                                          allowed_origins=ALLOWED_ORIGINS))
+    app = mcp.streamable_http_app(streamable_http_path=PATH,
+                                  transport_security=security)
     app = BearerAuth(app, TOKEN)
     return CORSMiddleware(
         app,
-        allow_origins=ALLOWED_ORIGINS,
+        allow_origins=["*"] if PERMISSIVE else ALLOWED_ORIGINS,
         allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
         allow_headers=["*"],
         # Without exposing this, the browser cannot read the session id off the
@@ -222,13 +302,26 @@ def main():
     log.info("roboshop-mcp starting")
     log.info("  backend : %s", backend.describe())
     log.info("  endpoint: http://%s:%d%s", BIND_HOST, PORT, PATH)
-    log.info("  hosts   : %s", ", ".join(ALLOWED_HOSTS))
-    log.info("  origins : %s", ", ".join(ALLOWED_ORIGINS))
+    if PERMISSIVE:
+        log.info("  hosts   : any (bound to %s; the bearer token is the only guard)",
+                 BIND_HOST)
+        log.info("  origins : any")
+    else:
+        log.info("  hosts   : %s", ", ".join(ALLOWED_HOSTS))
+        log.info("  origins : %s", ", ".join(ALLOWED_ORIGINS))
     log.info("  auth    : bearer token (%d chars)", len(TOKEN))
-    log.info("inspect with:")
-    log.info("  npx @modelcontextprotocol/inspector")
-    log.info("  transport=HTTP  url=http://%s:%d%s  header Authorization: Bearer <token>",
-             "localhost" if BIND_HOST in ("127.0.0.1", "0.0.0.0") else BIND_HOST, PORT, PATH)
+
+    if OPEN_HOST:
+        log.warning("listening on %s -- reachable from off this machine.", BIND_HOST)
+        log.warning("the token crosses the wire in cleartext over plain HTTP;")
+        log.warning("keep the port scoped to people you trust, and rotate the token after.")
+
+    advertise = _public_address()
+    log.info("connect a client:")
+    log.info("  npx -y @modelcontextprotocol/inspector")
+    log.info("  transport = Streamable HTTP")
+    log.info("  url       = http://%s:%d%s", advertise, PORT, PATH)
+    log.info("  header    = Authorization: Bearer $MCP_TOKEN")
 
     try:
         uvicorn.run(build_app(), host=BIND_HOST, port=PORT,

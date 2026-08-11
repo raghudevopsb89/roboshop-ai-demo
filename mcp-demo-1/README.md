@@ -42,8 +42,17 @@ eval "$(make -s token)"        # sets MCP_TOKEN; keep it, the client needs it
 `roboshop.db` from the `.sql` files in this directory:
 
 ```bash
-make db
-make run-sqlite
+make run-sqlite          # builds the db, then serves on 0.0.0.0:8080
+```
+
+Both run targets listen on **all interfaces** so a client on another machine
+connects directly, no tunnel. Keep it local with `HOST=127.0.0.1 make run-sqlite`.
+
+On a cloud VM the machine only knows its private address, so the URL printed at
+startup is the private one. Tell it the address clients actually dial:
+
+```bash
+export MCP_PUBLIC_HOST=9.205.88.27
 ```
 
 **Live** — needs three variables exported, and a host inside the VNet the
@@ -70,6 +79,11 @@ that a real MCP session can list and call tools. It exits non-zero if the auth
 checks ever pass silently.
 
 ## Connect a client — MCP Inspector
+
+**The server has no web UI.** Browsing to `http://<host>:8080/` gets you a page
+that says so and repeats the settings below; `/mcp` itself is JSON-RPC over POST
+and will only ever return `401` or `400` to a browser address bar. The UI is
+Inspector, which you run yourself.
 
 Free, official, no account, no model. Needs `node`.
 
@@ -107,32 +121,47 @@ as `npx mcp-remote <url> --header ...`.
 | Variable | Default | Notes |
 |---|---|---|
 | `MCP_TOKEN` | — | **required**, ≥16 chars; server refuses to start without it |
-| `MCP_BIND_HOST` | `127.0.0.1` | `0.0.0.0` to accept remote clients |
+| `MCP_BIND_HOST` | `127.0.0.1` | the Makefile sets `0.0.0.0`; `HOST=` overrides |
+| `MCP_PUBLIC_HOST` | auto-detected | address printed for clients to dial |
 | `MCP_PORT` | `8080` | |
-| `MCP_ALLOWED_HOSTS` | — | see below |
-| `MCP_ALLOWED_ORIGINS` | Inspector's `localhost:6274` | extra browser origins |
+| `MCP_ALLOWED_HOSTS` | any, when bound publicly | setting it re-enables strict checks |
+| `MCP_ALLOWED_ORIGINS` | any, when bound publicly | plus Inspector's `localhost:6274` |
 | `ROBOSHOP_BACKEND` | `live` | or `sqlite` |
 | `ROBOSHOP_SQLITE` | `./roboshop.db` | sqlite backend only |
 
-## Three gotchas
+## Host, Origin and the open port
 
-**`421 Invalid Host header`.** Streamable HTTP has DNS-rebinding protection on
-by default and only trusts localhost. A laptop connecting to the VM by IP is
-refused *even with a correct token*, and the error says nothing about why. Put
-the address clients actually use in `MCP_ALLOWED_HOSTS`:
+Streamable HTTP ships with DNS-rebinding protection: it rejects an unknown
+`Host` with `421` and an unknown `Origin` with `403`, *even when the token is
+correct*, and neither error hints at why. A remote client's `Host` is whatever
+address it dialled, so pinning that list up front is guesswork.
+
+So when the server binds to anything other than loopback and you have **not**
+set `MCP_ALLOWED_HOSTS` yourself, that protection is switched off and any
+`Origin` is accepted. `/healthz` reports which mode you are in
+(`"host_check": "any"` or `"pinned"`). That protection exists to stop a
+malicious web page driving a server bound to someone's localhost; it is not
+what guards this one. **The bearer token is**, and it is still required on
+every request.
+
+To pin them instead, set either and the strict behaviour returns:
 
 ```bash
-export MCP_ALLOWED_HOSTS="9.205.158.76:8080,roboshop-vm:8080"
-```
-
-**`403 Invalid Origin header`.** The same protection also checks `Origin`.
-Server-to-server clients send none and never see this; a browser always sends
-one. Inspector's default `http://localhost:6274` is allowed out of the box — if
-you run its UI anywhere else, add it:
-
-```bash
+export MCP_ALLOWED_HOSTS="9.205.88.27:8080,roboshop-vm:8080"
 export MCP_ALLOWED_ORIGINS="http://192.168.1.20:6274"
 ```
+
+**Understand what an open port means.** On a public IP with plain HTTP, the
+token is the only thing between the internet and your data, and it crosses the
+wire in cleartext. Scanners find open ports within minutes — the server log
+shows them arriving:
+
+```
+WARNING rejected unauthenticated request to /favicon.ico from 165.22.120.45
+```
+
+That is the design working, but for anything beyond a demo put TLS in front of
+it, scope the firewall to known addresses, and rotate the token afterwards.
 
 The endpoint also answers CORS preflight, and that layer sits **outside** auth
 deliberately: a preflight `OPTIONS` carries no `Authorization` header by

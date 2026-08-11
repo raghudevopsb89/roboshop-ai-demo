@@ -14,13 +14,17 @@ token:
 # Build the local roboshop.db from catalogue.sql + shipping.sql.
 db: ; $(PY) setup_db.py
 
+# Both run targets listen on all interfaces so a client on another machine can
+# reach them with no tunnel. Override for a private run:  HOST=127.0.0.1 make run
+HOST ?= 0.0.0.0
+
 # Live data. Needs MYSQL_HOST / MYSQL_PASSWORD / MONGO_URL exported, and a host
 # inside the VNet those private stores live in.
-run: ; $(PY) server.py
+run: ; MCP_BIND_HOST=$(HOST) $(PY) server.py
 
 # Rehearsal: local snapshot, no credentials, no VNet, runs anywhere.
 run-sqlite: db
-	ROBOSHOP_BACKEND=sqlite $(PY) server.py
+	MCP_BIND_HOST=$(HOST) ROBOSHOP_BACKEND=sqlite $(PY) server.py
 
 test: ; $(PY) smoke_test.py
 

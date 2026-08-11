@@ -49,6 +49,12 @@ async def main():
             r = await http.get(HEALTH)
             check(r.status_code == 200, "health endpoint open without a token",
                   f"{r.status_code} {r.text[:120]}")
+            # Bound publicly without a pinned host list -> any Host/Origin is
+            # accepted on purpose, so the Origin expectation below flips.
+            try:
+                pinned = r.json().get("host_check") == "pinned"
+            except Exception:
+                pinned = True
         except Exception as e:
             check(False, "health endpoint reachable", f"{type(e).__name__}: {e}")
             print("\nserver not running? start it in another shell:\n"
@@ -73,7 +79,13 @@ async def main():
         inspector = "http://localhost:6274"
         r = await http.post(URL, json=probe, headers={
             **accept, "Authorization": f"Bearer {TOKEN}", "Origin": "http://evil.example"})
-        check(r.status_code == 403, "unlisted Origin is rejected", f"got HTTP {r.status_code}")
+        if pinned:
+            check(r.status_code == 403, "unlisted Origin is rejected",
+                  f"got HTTP {r.status_code}")
+        else:
+            check(r.status_code != 403,
+                  "any Origin accepted (server bound publicly, host_check=any)",
+                  f"got HTTP {r.status_code} -- the token is the guard here")
 
         r = await http.request("OPTIONS", URL, headers={
             "Origin": inspector,
