@@ -8,9 +8,9 @@ Two backends:
 
   live    (default)  Azure MySQL Flexible Server + Cosmos DB for MongoDB.
                      Only reachable from inside workstation-vnet, i.e. the VM.
-  sqlite             The roboshop.db snapshot from rag-demo-4. Runs anywhere,
-                     so you can rehearse the demo on a laptop with no VNet, no
-                     credentials and no drivers installed.
+  sqlite             A local roboshop.db, built by setup_db.py from the .sql
+                     files in this directory. Runs anywhere, so you can
+                     rehearse with no VNet, no credentials and no drivers.
 
 Same four functions either way, same return shapes, so server.py does not care
 which is in use.
@@ -34,10 +34,10 @@ MONGO_DB = os.environ.get("MONGO_DB", "orders")
 MONGO_COLLECTION = os.environ.get("MONGO_COLLECTION", "orders")
 MONGO_TIMEOUT_MS = int(os.environ.get("MONGO_TIMEOUT_MS", "8000"))
 
-# ---- sqlite: the rag-demo-4 snapshot ------------------------------------
+# ---- sqlite: built locally by setup_db.py -------------------------------
 _HERE = os.path.dirname(os.path.abspath(__file__))
-SQLITE_PATH = os.environ.get(
-    "ROBOSHOP_SQLITE", os.path.join(_HERE, "..", "rag-demo-4", "roboshop.db"))
+SQLITE_PATH = os.environ.get("ROBOSHOP_SQLITE",
+                             os.path.join(_HERE, "roboshop.db"))
 
 _mysql_conn = None
 _mongo_client = None
@@ -62,8 +62,9 @@ def check_config():
         if not os.path.exists(SQLITE_PATH):
             raise ConfigError(
                 f"sqlite backend selected but {os.path.abspath(SQLITE_PATH)} "
-                f"does not exist.\nBuild it:  cd ../rag-demo-4 && python3 setup_db.py"
-                f"\nOr point at another file with ROBOSHOP_SQLITE=/path/to.db")
+                f"does not exist.\n"
+                f"Build it:  python3 setup_db.py      (or: make db)\n"
+                f"Or point elsewhere with ROBOSHOP_SQLITE=/path/to.db")
         return
     if BACKEND != "live":
         raise ConfigError(f"ROBOSHOP_BACKEND must be 'live' or 'sqlite', got {BACKEND!r}")
@@ -71,14 +72,14 @@ def check_config():
             if not globals()[n]]
     if gaps:
         raise ConfigError(
-            "live backend is missing: " + ", ".join(gaps) + "\n"
-            "These come from the azure-services stack:\n"
-            "  cd ../../azure-services/infra\n"
-            "  export MYSQL_HOST=$(terraform output -raw mysql_host)\n"
-            "  export MYSQL_PASSWORD='RoboShop@1'\n"
-            "  export MONGO_URL=$(terraform output -json mongo_urls | "
-            "python3 -c 'import json,sys; print(json.load(sys.stdin)[\"orders\"])')\n"
-            "Or rehearse without them:  ROBOSHOP_BACKEND=sqlite")
+            "live backend is missing: " + ", ".join(gaps) + "\n\n"
+            "Export them, then re-run:\n"
+            "  export MYSQL_HOST=<mysql fqdn>\n"
+            "  export MYSQL_PASSWORD=<password>\n"
+            "  export MONGO_URL=<cosmos mongo connection string for the orders db>\n\n"
+            "The live stores are private, so this only works from a host inside\n"
+            "their VNet. To rehearse anywhere instead:\n"
+            "  make db && make run-sqlite")
 
 
 # ------------------------------------------------------------- connections

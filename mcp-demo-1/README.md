@@ -4,9 +4,9 @@
 The requirement: **let people ask questions about live RoboShop data from their
 own AI tool, without giving anyone the database password or VNet access.**
 
-Sharing `rag-demo-4/ask_live.py` cannot do that — running it requires
-`MYSQL_PASSWORD` and `MONGO_URL` (which carries the Cosmos key), plus a shell on
-the VM. Sharing the script means sharing admin credentials.
+Sharing a script that queries the databases directly cannot do that — running it
+requires `MYSQL_PASSWORD` and `MONGO_URL` (which carries the Cosmos key), plus a
+shell inside the VNet. Sharing the script means sharing admin credentials.
 
 ```
 laptop: Claude Code / Claude Desktop / any MCP client
@@ -38,25 +38,26 @@ make venv
 eval "$(make -s token)"        # sets MCP_TOKEN; keep it, the client needs it
 ```
 
-Rehearsal — no credentials, no VNet, works on a laptop:
+**Rehearsal** — no credentials, no VNet, runs anywhere. `make db` builds
+`roboshop.db` from the `.sql` files in this directory:
 
 ```bash
+make db
 make run-sqlite
 ```
 
-Live, on the VM:
+**Live** — needs three variables exported, and a host inside the VNet the
+private MySQL and Cosmos endpoints live in:
 
 ```bash
-cd ../../azure-services/infra
-export MYSQL_HOST=$(terraform output -raw mysql_host)
-export MYSQL_PASSWORD='RoboShop@1'
-export MONGO_URL=$(terraform output -json mongo_urls \
-    | python3 -c 'import json,sys; print(json.load(sys.stdin)["orders"])')
-cd -
-export MCP_BIND_HOST=0.0.0.0
-export MCP_ALLOWED_HOSTS="9.205.158.76:8080"     # see gotcha below
+export MYSQL_HOST=<mysql fqdn>
+export MYSQL_PASSWORD=<password>
+export MONGO_URL=<cosmos mongo connection string for the orders db>
 make run
 ```
+
+Everything in this README runs from this directory. Nothing else in the repo is
+required.
 
 Verify from another shell:
 
@@ -111,7 +112,7 @@ as `npx mcp-remote <url> --header ...`.
 | `MCP_ALLOWED_HOSTS` | — | see below |
 | `MCP_ALLOWED_ORIGINS` | Inspector's `localhost:6274` | extra browser origins |
 | `ROBOSHOP_BACKEND` | `live` | or `sqlite` |
-| `ROBOSHOP_SQLITE` | `../rag-demo-4/roboshop.db` | sqlite backend only |
+| `ROBOSHOP_SQLITE` | `./roboshop.db` | sqlite backend only |
 
 ## Three gotchas
 
@@ -154,14 +155,18 @@ header.
 |---|---|
 | `server.py` | the MCP server — four tools, bearer auth, audit logging |
 | `backend.py` | data access; the only place credentials exist |
+| `setup_db.py` | builds `roboshop.db` for the sqlite backend |
+| `catalogue.sql`, `shipping.sql` | the data — 12 products, 25 cities |
 | `smoke_test.py` | proves the tools work *and* that the token protects them |
-| `Makefile` | `venv`, `token`, `run`, `run-sqlite`, `test`, `inspect`, `inspect-cli` |
+| `Makefile` | `venv`, `token`, `db`, `run`, `run-sqlite`, `test`, `inspect`, `inspect-cli` |
 
 ## Demo running order
 
+All from this directory.
+
 ```bash
 make venv && eval "$(make -s token)"
-make run-sqlite                 # or: make run, on the VM with live data
+make run-sqlite                 # or: make run, with the live variables set
 make test                       # in a second shell: everything green
 make inspect                    # browser: list the tools, call one
 ```

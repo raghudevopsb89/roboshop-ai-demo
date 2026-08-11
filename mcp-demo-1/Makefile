@@ -11,11 +11,16 @@ venv:
 token:
 	@echo "export MCP_TOKEN=$$($(PY) -c 'import secrets;print(secrets.token_hex(32))')"
 
-# Live data. Needs MYSQL_* / MONGO_URL and must run on the VM.
+# Build the local roboshop.db from catalogue.sql + shipping.sql.
+db: ; $(PY) setup_db.py
+
+# Live data. Needs MYSQL_HOST / MYSQL_PASSWORD / MONGO_URL exported, and a host
+# inside the VNet those private stores live in.
 run: ; $(PY) server.py
 
-# Rehearsal: the rag-demo-4 snapshot, no credentials, no VNet, runs anywhere.
-run-sqlite: ; ROBOSHOP_BACKEND=sqlite $(PY) server.py
+# Rehearsal: local snapshot, no credentials, no VNet, runs anywhere.
+run-sqlite: db
+	ROBOSHOP_BACKEND=sqlite $(PY) server.py
 
 test: ; $(PY) smoke_test.py
 
@@ -39,4 +44,4 @@ inspect-cli:
 
 clean: ; rm -rf $(VENV) __pycache__
 
-.PHONY: venv token run run-sqlite test inspect inspect-cli clean
+.PHONY: venv token db run run-sqlite test inspect inspect-cli clean
