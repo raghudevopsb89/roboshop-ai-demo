@@ -49,15 +49,21 @@ def missing(*names):
 
 def require(*names):
     gaps = missing(*names)
-    if gaps:
-        raise SystemExit(
-            "missing environment variable(s): " + ", ".join(gaps) + "\n\n"
-            "These come from the azure-services stack, not ../infra:\n"
-            "  cd ../../azure-services/infra\n"
-            "  export MYSQL_HOST=$(terraform output -raw mysql_host)\n"
-            "  export MYSQL_PASSWORD='RoboShop@1'\n"
-            "  export MONGO_URL=$(terraform output -json mongo_urls | "
-            "python3 -c 'import json,sys; print(json.load(sys.stdin)[\"orders\"])')")
+    if not gaps:
+        return
+    where = (f"Profile '{envprofile.ACTIVE}' is loaded but does not set these -- "
+             f"add them to\n  {envprofile.path_for(envprofile.ACTIVE)}"
+             if envprofile.ACTIVE else
+             "Add them to your profile (see profiles/example.env) or export them.")
+    raise SystemExit(
+        "missing environment variable(s): " + ", ".join(gaps) + "\n\n"
+        + where + "\n\n"
+        "Note these come from the azure-services stack, NOT ../infra:\n"
+        "  cd ../../azure-services/infra\n"
+        "  export MYSQL_HOST=$(terraform output -raw mysql_host)\n"
+        "  export MYSQL_PASSWORD='RoboShop@1'\n"
+        "  export MONGO_URL=$(terraform output -json mongo_urls | "
+        "python3 -c 'import json,sys; print(json.load(sys.stdin)[\"orders\"])')")
 
 
 def summary():

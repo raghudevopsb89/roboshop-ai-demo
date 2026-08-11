@@ -1,0 +1,9 @@
+# mcp 2.x restructured the API (no more mcp.server.fastmcp) -- server.py uses
+# mcp.server.mcpserver.MCPServer, so the major version is pinned deliberately.
+mcp==2.0.0
+uvicorn==0.52.1
+
+# Only needed for ROBOSHOP_BACKEND=live. The sqlite backend uses the standard
+# library, so a laptop rehearsal does not need either of these.
+PyMySQL==1.1.1
+pymongo==4.10.1

@@ -57,10 +57,23 @@ def require_config():
     """Fail early and actionably rather than with a confusing 401 later."""
     missing = [n for n in ("AZURE_BASE", "AZURE_KEY") if not globals()[n]]
     if missing:
+        known = envprofile.available()
+        if envprofile.ACTIVE:
+            hint = (f"Profile '{envprofile.ACTIVE}' is loaded but does not set "
+                    f"{' / '.join(missing)}.\n"
+                    f"  {envprofile.path_for(envprofile.ACTIVE)}")
+        elif known:
+            hint = ("Select one of your profiles:\n"
+                    f"  export ROBOSHOP_PROFILE={known[0]}"
+                    f"        (available: {', '.join(known)})")
+        else:
+            hint = ("Either export them directly:\n"
+                    "  cd ../infra && eval \"$(ENV=<yourname> make -s env)\"\n"
+                    "or save them once as a profile:\n"
+                    "  cd ../infra && ENV=<yourname> make profile\n"
+                    "  export ROBOSHOP_PROFILE=<yourname>")
         raise SystemExit(
-            "missing environment variable(s): " + ", ".join(missing) + "\n\n"
-            "Get them from the Terraform stack:\n"
-            "  cd ../infra && eval \"$(make -s env)\"")
+            "missing environment variable(s): " + ", ".join(missing) + "\n\n" + hint)
 
 
 def _describe(code, detail):

@@ -45,8 +45,10 @@ def check_foundry():
     print("\n--- Foundry (chat model) ---")
     import common
     if not common.AZURE_BASE or not common.AZURE_KEY:
-        line(BAD, "config", 'AZURE_BASE / AZURE_KEY not set -- '
-                            'cd ../infra && eval "$(make -s env)"')
+        # ENV= matters: without it `make env` reads env-dev, i.e. someone
+        # else's endpoint and key.
+        line(BAD, "config", "AZURE_BASE / AZURE_KEY not set --\n"
+                            '         cd ../infra && eval "$(ENV=<yourname> make -s env)"')
         return False
     try:
         reply = common.chat("Reply with the single word: ok")
@@ -131,8 +133,31 @@ def check_mongo():
         return False
 
 
+def profile_banner():
+    """Say which profile is in play. Without this, an all-unset run looks like
+    a broken script rather than an unconfigured one."""
+    import envprofile
+    if envprofile.ACTIVE:
+        print(f"profile: {envprofile.ACTIVE} "
+              f"({envprofile.path_for(envprofile.ACTIVE)})")
+        return
+    known = envprofile.available()
+    if known:
+        print(f"profile: none selected -- available: {', '.join(known)}")
+        print(f"         export ROBOSHOP_PROFILE={known[0]}")
+    else:
+        print("profile: none (reading plain environment variables)")
+        print("         to make one:  cd ../infra && ENV=<yourname> make profile")
+
+
 def main():
+    import common
     print("RoboShop demo 4 -- live data connectivity check")
+    profile_banner()
+    # Show the endpoint host (never the key) -- with one Foundry per person,
+    # pointing at someone else's account is the failure worth catching early.
+    host = common.AZURE_BASE.split("//")[-1].split("/")[0] if common.AZURE_BASE else "(unset)"
+    print(f"foundry: {host} chat={common.CHAT_MODEL} embed={common.EMBED_MODEL}")
     print(tools.summary())
     results = [check_foundry(), check_mysql(), check_mongo()]
     print()
