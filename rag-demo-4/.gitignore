@@ -1,0 +1,9 @@
+roboshop.db
+__pycache__/
+*.pyc
+.venv/
+.env
+
+# Per-person config: AZURE_KEY and MONGO_URL are secrets.
+profiles/*.env
+!profiles/example.env
