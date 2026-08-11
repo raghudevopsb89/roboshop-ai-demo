@@ -42,20 +42,26 @@ dev dev-apply: apply
 dev-plan: plan
 dev-destroy: destroy
 
-# Scaffold a new person's environment from env-dev as the template.
+# Scaffold a new person's environment from template/.
+#
+# NOT from env-dev/: that is an already-deployed environment which also carries
+# Ministral-3B (Marketplace model, capacity hard-capped at 1). New environments
+# get gpt-5-mini + text-embedding-3-small only. See template/main.tfvars.
 new-env:
 	@test "$(ENV)" != "dev" || { \
-	  echo "ENV=dev is the shared template -- pick your own name:"; \
+	  echo "env-dev is a live, hand-maintained environment -- pick your own name:"; \
 	  echo "  make new-env ENV=<yourname>"; exit 1; }
+	@test "$(ENV)" != "template" || { \
+	  echo "template/ is the scaffold source, not an environment name."; exit 1; }
 	@test ! -d $(DIR) || { echo "$(DIR) already exists"; exit 1; }
 	@mkdir -p $(DIR)
-	@sed 's|^key  *=.*|key                  = "roboshop-ai-demo/$(ENV)/terraform.tfstate"|' \
-	  env-dev/state.tfvars > $(DIR)/state.tfvars
-	@sed 's|^env  *=.*|env = "$(ENV)"|' env-dev/main.tfvars > $(DIR)/main.tfvars
+	@sed 's|ENV_PLACEHOLDER|$(ENV)|g' template/state.tfvars > $(DIR)/state.tfvars
+	@sed 's|ENV_PLACEHOLDER|$(ENV)|g' template/main.tfvars  > $(DIR)/main.tfvars
 	@echo "created $(DIR)/"
 	@grep -H '^key' $(DIR)/state.tfvars
-	@grep -H '^env' $(DIR)/main.tfvars
+	@grep -H '^env ' $(DIR)/main.tfvars
 	@echo "-> foundry_name will be roboshop-$(ENV)-foundry (must be globally unique)"
+	@echo "-> deploys gpt-5-mini + text-embedding-3-small (no Ministral-3B)"
 	@echo "-> check region + model availability in $(DIR)/main.tfvars, then:"
 	@echo "   ENV=$(ENV) make plan"
 

@@ -35,14 +35,21 @@ ENV=raghu make profile        # -> ../rag-demo-4/profiles/raghu.env (gitignored)
 ENV=raghu make destroy
 ```
 
-`new-env` copies `env-dev/` and changes exactly two things — the state key
-(`roboshop-ai-demo/<env>/terraform.tfstate`) and `env`, which drives
-`roboshop-<env>-foundry`. Region and model deployments are inherited, so read
-the caveats below before applying.
+`new-env` scaffolds from **`template/`**, substituting your name into the state
+key (`roboshop-ai-demo/<env>/terraform.tfstate`) and `env`, which drives
+`roboshop-<env>-foundry`.
+
+The template deploys **`gpt-5-mini` + `text-embedding-3-small` only**.
+`env-dev/` is not the template — it is a separate, already-deployed environment
+that additionally carries `Ministral-3B`, kept there for the small-model
+comparison in `rag-demo-4/README.md` §3. New environments skip it because Azure
+hard-caps it at `capacity = 1`, too little to serve a RAG prompt, and it needs a
+Marketplace subscription accepted before `apply` will work. `template/main.tfvars`
+records how to opt back in.
 
 `ENV` defaults to `dev`, so `make dev` and the existing `roboshop-dev-foundry`
-state behave exactly as before. `make new-env ENV=dev` is refused — `env-dev/`
-is the shared template.
+state behave exactly as before. `make new-env ENV=dev` and `ENV=template` are
+both refused.
 
 `output`, `env` and `profile` re-run `terraform init` for the selected `ENV`,
 because `.terraform/` otherwise still points at whichever environment was used
@@ -78,6 +85,10 @@ which silently truncates to the shorter vector rather than erroring — you'd ge
 plausible-looking garbage scores instead of a crash.
 
 ### 2. Ministral-3B is a Marketplace model
+
+**This no longer applies to a fresh `make new-env`** — `template/` does not
+deploy Ministral-3B, so none of the below blocks you. It is still true for
+`env-dev`, and for anyone who opts the model back in.
 
 It's a partner/community model, not first-party, which means:
 

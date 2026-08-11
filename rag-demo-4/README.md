@@ -130,7 +130,13 @@ optimum off this data would be lying.
 
 ### 3. Two chat models, and neither behaved as assumed
 
-**`Ministral-3B` is deployed but is not the default.** Azure caps it at
+**`Ministral-3B` may not exist in your environment.** It is deployed in
+`env-dev` only — `infra/template/`, which `make new-env` scaffolds from, leaves
+it out. In a fresh environment `CHAT_MODEL=Ministral-3B` returns 404
+`DeploymentNotFound` unless you add it back to your own `main.tfvars`. The rest
+of this section describes why it is not worth deploying.
+
+**It is deployed in `env-dev` but is not the default there either.** Azure caps it at
 `capacity = 1` — literally, it rejects any other value — and that is not enough
 throughput for a RAG turn. A five-chunk context reliably returns 429
 `RateLimitReached`, and it keeps returning it through the full retry budget
